@@ -19,18 +19,41 @@ app.prepare().then(() => {
     },
   })
 
+  // Track users per room
+  const roomUsers = new Map() // room -> Map<socketId, userData>
+
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id)
 
     // Join a canvas room
-    socket.on('join-room', (room) => {
+    socket.on('join-room', (data) => {
+      const { room, user } = typeof data === 'string' ? { room: data, user: null } : data
       socket.join(room)
+      socket.currentRoom = room
+
+      // Track user in room
+      if (!roomUsers.has(room)) {
+        roomUsers.set(room, new Map())
+      }
+      if (user) {
+        roomUsers.get(room).set(socket.id, { ...user, odId: socket.id })
+        // Notify others
+        socket.to(room).emit('user-joined', { odId: socket.id, ...user })
+        // Send current users to new user
+        const users = Array.from(roomUsers.get(room).values())
+        socket.emit('users-list', users)
+      }
+
       console.log(`${socket.id} joined room: ${room}`)
     })
 
     // Leave a canvas room
     socket.on('leave-room', (room) => {
       socket.leave(room)
+      if (roomUsers.has(room)) {
+        roomUsers.get(room).delete(socket.id)
+        socket.to(room).emit('user-left', socket.id)
+      }
       console.log(`${socket.id} left room: ${room}`)
     })
 
@@ -46,8 +69,25 @@ app.prepare().then(() => {
       socket.to(room).emit('pixels', pixels)
     })
 
+    // Cursor position - broadcast to room
+    socket.on('cursor', (data) => {
+      const { room, cursor } = data
+      socket.to(room).emit('cursor', { odId: socket.id, ...cursor })
+    })
+
+    // Chat message - broadcast to room
+    socket.on('chat', (data) => {
+      const { room, message } = data
+      socket.to(room).emit('chat', { odId: socket.id, ...message, timestamp: Date.now() })
+    })
+
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.id)
+      // Remove from all rooms
+      if (socket.currentRoom && roomUsers.has(socket.currentRoom)) {
+        roomUsers.get(socket.currentRoom).delete(socket.id)
+        socket.to(socket.currentRoom).emit('user-left', socket.id)
+      }
     })
   })
 
