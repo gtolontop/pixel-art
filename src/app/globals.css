@@ -23,5 +23,37 @@ body {
 
 body {
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
+}
+
+/* Safe area padding for mobile */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+
+/* Animations */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.2s ease-out;
+}
+
+/* Better touch targets on mobile */
+@media (max-width: 768px) {
+  input[type="range"] {
+    height: 12px;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
 }
