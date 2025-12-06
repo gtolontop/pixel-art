@@ -33,33 +33,34 @@ export function RemoteCursors() {
         return (
           <div
             key={cursor.visibleId}
-            className="absolute transition-all duration-75 ease-out"
+            className="absolute transition-all duration-100 ease-out"
             style={{
               left: screen.x,
               top: screen.y,
-              transform: 'translate(-2px, -2px)',
+              transform: 'translate(-50%, -50%)',
             }}
           >
-            {/* Cursor */}
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill={cursor.color}
-              className="drop-shadow-md"
-            >
-              <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.48 0 .72-.58.38-.92L6.35 2.85a.5.5 0 0 0-.85.36Z" />
-              <path
-                d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.48 0 .72-.58.38-.92L6.35 2.85a.5.5 0 0 0-.85.36Z"
-                stroke="white"
-                strokeWidth="1.5"
-                fill="none"
+            {/* Touch/cursor indicator - pulsing circle */}
+            <div className="relative flex items-center justify-center">
+              {/* Outer pulse ring */}
+              <div
+                className="absolute w-8 h-8 rounded-full opacity-30 animate-ping"
+                style={{ backgroundColor: cursor.color }}
               />
-            </svg>
+              {/* Inner solid circle */}
+              <div
+                className="w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center"
+                style={{ backgroundColor: cursor.color }}
+              >
+                <span className="text-[10px] font-bold text-white">
+                  {cursor.username.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            </div>
 
             {/* Username label */}
             <div
-              className="absolute left-5 top-4 px-2 py-0.5 rounded text-xs font-medium text-white whitespace-nowrap shadow-md"
+              className="absolute left-1/2 -translate-x-1/2 top-8 px-2 py-0.5 rounded-full text-[10px] font-medium text-white whitespace-nowrap shadow-md"
               style={{ backgroundColor: cursor.color }}
             >
               {cursor.username}
