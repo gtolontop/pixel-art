@@ -99,7 +99,7 @@ export function useSocket(canvasId: string) {
     if (!isSupabaseConfigured || !supabase) return
 
     const syncChunksToDb = async () => {
-      if (pendingChunkUpdates.current.size === 0) return
+      if (!supabase || pendingChunkUpdates.current.size === 0) return
 
       const updates = new Map(pendingChunkUpdates.current)
       pendingChunkUpdates.current.clear()
