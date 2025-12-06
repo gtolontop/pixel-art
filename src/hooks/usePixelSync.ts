@@ -3,27 +3,52 @@
 import { useEffect, useRef } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
 import { useCanvasStore } from '@/lib/store'
+import { chunkToPixels, type ChunkData } from '@/lib/canvas/ChunkedCanvas'
 import type { Pixel } from '@/types'
 
 export function usePixelSync(canvasId: string) {
   const setPixels = useCanvasStore((state) => state.setPixels)
   const hasLoadedInitial = useRef(false)
-  const isSyncingRef = useRef(false)
 
-  // Load pixels on mount
+  // Load chunks on mount
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase || hasLoadedInitial.current) return
     hasLoadedInitial.current = true
 
-    const loadPixels = async () => {
-      console.log('Loading pixels for canvas:', canvasId)
+    const loadChunks = async () => {
       try {
+        // First try to load from new chunk-based table
+        const { data: chunks, error: chunkError } = await supabase
+          .from('canvas_chunks')
+          .select('chunk_x, chunk_y, pixels')
+          .eq('canvas_id', canvasId)
+
+        if (!chunkError && chunks && chunks.length > 0) {
+          // Load from chunks
+          const allPixels: Pixel[] = []
+          for (const chunk of chunks) {
+            if (chunk.pixels) {
+              const pixels = chunkToPixels({
+                chunk_x: chunk.chunk_x,
+                chunk_y: chunk.chunk_y,
+                pixels: chunk.pixels as ChunkData,
+              })
+              allPixels.push(...pixels)
+            }
+          }
+          if (allPixels.length > 0) {
+            setPixels(allPixels)
+          }
+          return
+        }
+
+        // Fallback: load from old pixels table (for migration)
         const { data, error } = await supabase
           .from('pixels')
           .select('x, y, color, placed_at')
           .eq('canvas_id', canvasId)
           .order('placed_at', { ascending: false })
-          .limit(50000)
+          .limit(100000)
 
         if (error) {
           console.error('Error loading pixels:', error)
@@ -31,7 +56,6 @@ export function usePixelSync(canvasId: string) {
         }
 
         if (data && data.length > 0) {
-          console.log('Loaded', data.length, 'pixels')
           const pixelMap = new Map<string, Pixel>()
           for (const p of data) {
             const key = `${p.x},${p.y}`
@@ -46,50 +70,8 @@ export function usePixelSync(canvasId: string) {
       }
     }
 
-    loadPixels()
+    loadChunks()
   }, [canvasId, setPixels])
-
-  // Sync pending pixels periodically
-  useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return
-
-    const syncPixels = async () => {
-      const store = useCanvasStore.getState()
-      const pending = store.pendingPixels
-
-      if (pending.length === 0 || isSyncingRef.current) return
-
-      isSyncingRef.current = true
-      const pixelsToSync = [...pending]
-      store.clearPendingPixels()
-
-      console.log('Syncing', pixelsToSync.length, 'pixels to Supabase')
-
-      try {
-        const { error } = await supabase.from('pixels').insert(
-          pixelsToSync.map((p) => ({
-            canvas_id: canvasId,
-            x: p.x,
-            y: p.y,
-            color: p.color,
-          }))
-        )
-
-        if (error) {
-          console.error('Error syncing pixels:', error)
-        } else {
-          console.log('Pixels saved!')
-        }
-      } catch (err) {
-        console.error('Error syncing pixels:', err)
-      } finally {
-        isSyncingRef.current = false
-      }
-    }
-
-    const interval = setInterval(syncPixels, 200)
-    return () => clearInterval(interval)
-  }, [canvasId])
 
   return { isConfigured: isSupabaseConfigured }
 }
