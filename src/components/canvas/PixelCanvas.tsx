@@ -321,9 +321,15 @@ export function PixelCanvas() {
 
   // Touch handlers for mobile
   const touchStartRef = useRef<{ x: number; y: number; dist: number } | null>(null)
+  const isDrawingRef = useRef(false)
+
+  // Sync isDrawing state to ref for use in native event handlers
+  useEffect(() => {
+    isDrawingRef.current = isDrawing
+  }, [isDrawing])
 
   const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
+    (e: TouchEvent) => {
       if (e.touches.length === 1) {
         // Single touch = draw
         const touch = e.touches[0]
@@ -338,6 +344,7 @@ export function PixelCanvas() {
           pickColor(world.x, world.y)
         } else {
           setIsDrawing(true)
+          isDrawingRef.current = true
           lastPixelRef.current = world
           drawPixel(world.x, world.y)
         }
@@ -346,6 +353,7 @@ export function PixelCanvas() {
       } else if (e.touches.length === 2) {
         // Two fingers = pan/zoom
         setIsDrawing(false)
+        isDrawingRef.current = false
         const [t1, t2] = [e.touches[0], e.touches[1]]
         const centerX = (t1.clientX + t2.clientX) / 2
         const centerY = (t1.clientY + t2.clientY) / 2
@@ -359,10 +367,10 @@ export function PixelCanvas() {
   )
 
   const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
+    (e: TouchEvent) => {
       e.preventDefault()
 
-      if (e.touches.length === 1 && isDrawing) {
+      if (e.touches.length === 1 && isDrawingRef.current) {
         const touch = e.touches[0]
         const rect = canvasRef.current?.getBoundingClientRect()
         if (!rect) return
@@ -399,14 +407,31 @@ export function PixelCanvas() {
         })
       }
     },
-    [isDrawing, viewport, setViewport, screenToWorld, drawPixel]
+    [viewport, setViewport, screenToWorld, drawPixel]
   )
 
   const handleTouchEnd = useCallback(() => {
     setIsDrawing(false)
+    isDrawingRef.current = false
     lastPixelRef.current = null
     touchStartRef.current = null
   }, [])
+
+  // Add touch listeners with passive: false
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false })
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false })
+
+    return () => {
+      canvas.removeEventListener('touchstart', handleTouchStart)
+      canvas.removeEventListener('touchmove', handleTouchMove)
+      canvas.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd])
 
   return (
     <div ref={containerRef} className="absolute inset-0">
@@ -417,9 +442,6 @@ export function PixelCanvas() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         onContextMenu={(e) => e.preventDefault()}
       />
 
