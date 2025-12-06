@@ -283,7 +283,7 @@ export function PixelCanvas() {
   }, [])
 
   const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+    (e: WheelEvent) => {
       e.preventDefault()
 
       const rect = canvasRef.current?.getBoundingClientRect()
@@ -309,6 +309,15 @@ export function PixelCanvas() {
     },
     [viewport, setViewport, screenToWorld]
   )
+
+  // Add wheel listener with passive: false
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
 
   // Touch handlers for mobile
   const touchStartRef = useRef<{ x: number; y: number; dist: number } | null>(null)
@@ -408,7 +417,6 @@ export function PixelCanvas() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
