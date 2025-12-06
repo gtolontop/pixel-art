@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client'
-import { useCanvasStore } from '@/lib/store'
+import { useCanvasStore, type ChatMessage } from '@/lib/store'
 import { groupPixelsByChunk, mergeChunkPixels, type ChunkData } from '@/lib/canvas/ChunkedCanvas'
 import type { Pixel } from '@/types'
 
@@ -14,8 +14,15 @@ const chunkCache = new Map<string, ChunkData>()
 
 export function useSocket(canvasId: string) {
   const setPixels = useCanvasStore((state) => state.setPixels)
+  const setRemoteCursor = useCanvasStore((state) => state.setRemoteCursor)
+  const removeRemoteCursor = useCanvasStore((state) => state.removeRemoteCursor)
+  const clearOldCursors = useCanvasStore((state) => state.clearOldCursors)
+  const addChatMessage = useCanvasStore((state) => state.addChatMessage)
+  const user = useCanvasStore((state) => state.user)
+  const cursorPosition = useCanvasStore((state) => state.cursorPosition)
   const currentRoomRef = useRef<string | null>(null)
   const pendingChunkUpdates = useRef<Map<string, { chunkX: number; chunkY: number; pixels: { localX: number; localY: number; color: string }[] }>>(new Map())
+  const lastCursorSent = useRef<{ x: number; y: number } | null>(null)
 
   // Initialize socket connection
   useEffect(() => {
@@ -31,17 +38,17 @@ export function useSocket(canvasId: string) {
       })
     }
 
-    // Join the canvas room
+    // Join the canvas room with user info
     if (socket && canvasId && currentRoomRef.current !== canvasId) {
       if (currentRoomRef.current) {
         socket.emit('leave-room', currentRoomRef.current)
       }
-      socket.emit('join-room', canvasId)
+      socket.emit('join-room', { room: canvasId, user })
       currentRoomRef.current = canvasId
     }
 
     return () => {}
-  }, [canvasId])
+  }, [canvasId, user])
 
   // Listen for pixels from other users
   useEffect(() => {
@@ -63,6 +70,102 @@ export function useSocket(canvasId: string) {
       socket?.off('pixels', handlePixels)
     }
   }, [setPixels])
+
+  // Listen for cursors from other users
+  useEffect(() => {
+    if (!socket) return
+
+    const handleCursor = (data: { odId: string; username: string; color: string; x: number; y: number }) => {
+      setRemoteCursor(data.odId, {
+        visibleId: data.odId,
+        username: data.username,
+        color: data.color,
+        x: data.x,
+        y: data.y,
+      })
+    }
+
+    const handleUserLeft = (odId: string) => {
+      removeRemoteCursor(odId)
+    }
+
+    socket.on('cursor', handleCursor)
+    socket.on('user-left', handleUserLeft)
+
+    // Clear old cursors periodically
+    const cleanupInterval = setInterval(clearOldCursors, 2000)
+
+    return () => {
+      socket?.off('cursor', handleCursor)
+      socket?.off('user-left', handleUserLeft)
+      clearInterval(cleanupInterval)
+    }
+  }, [setRemoteCursor, removeRemoteCursor, clearOldCursors])
+
+  // Listen for chat messages
+  useEffect(() => {
+    if (!socket) return
+
+    const handleChat = (message: ChatMessage) => {
+      addChatMessage(message)
+    }
+
+    socket.on('chat', handleChat)
+
+    return () => {
+      socket?.off('chat', handleChat)
+    }
+  }, [addChatMessage])
+
+  // Send cursor position
+  useEffect(() => {
+    if (!socket || !user || !cursorPosition) return
+
+    // Throttle cursor updates
+    if (
+      lastCursorSent.current &&
+      lastCursorSent.current.x === cursorPosition.x &&
+      lastCursorSent.current.y === cursorPosition.y
+    ) {
+      return
+    }
+
+    lastCursorSent.current = cursorPosition
+    socket.emit('cursor', {
+      room: canvasId,
+      cursor: {
+        username: user.username,
+        color: user.color,
+        x: cursorPosition.x,
+        y: cursorPosition.y,
+      },
+    })
+  }, [canvasId, user, cursorPosition])
+
+  // Send chat message function
+  const sendChatMessage = useCallback(
+    (text: string) => {
+      if (!socket || !user || !text.trim()) return
+
+      const message = {
+        username: user.username,
+        color: user.color,
+        text: text.trim(),
+      }
+
+      socket.emit('chat', { room: canvasId, message })
+
+      // Add to local messages immediately
+      addChatMessage({
+        visibleId: 'self',
+        username: user.username,
+        color: user.color,
+        text: text.trim(),
+        timestamp: Date.now(),
+      })
+    },
+    [canvasId, user, addChatMessage]
+  )
 
   // Sync pending pixels via Socket.IO (fast, real-time)
   useEffect(() => {
@@ -155,5 +258,5 @@ export function useSocket(canvasId: string) {
     return () => clearInterval(interval)
   }, [canvasId])
 
-  return {}
+  return { sendChatMessage }
 }
