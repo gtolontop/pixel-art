@@ -16,6 +16,7 @@ export function usePixelSync(canvasId: string) {
     hasLoadedInitial.current = true
 
     const loadChunks = async () => {
+      if (!supabase) return
       try {
         // First try to load from new chunk-based table
         const { data: chunks, error: chunkError } = await supabase
