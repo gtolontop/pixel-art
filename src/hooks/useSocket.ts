@@ -219,7 +219,7 @@ export function useSocket(canvasId: string) {
     return () => clearInterval(interval)
   }, [canvasId])
 
-  // Sync chunks to Supabase (debounced, batched)
+  // Sync chunks to Supabase (debounced, batched) - uses atomic merge
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return
 
@@ -231,39 +231,54 @@ export function useSocket(canvasId: string) {
 
       for (const [key, data] of updates) {
         try {
-          // Get existing chunk from cache or DB
-          let existingData = chunkCache.get(key) || null
+          // Convert pixels array to JSONB format {localX_localY: color}
+          const pixelsJson: Record<string, string> = {}
+          for (const p of data.pixels) {
+            pixelsJson[`${p.localX}_${p.localY}`] = p.color
+          }
 
-          if (!existingData) {
-            const { data: existing } = await supabase
-              .from('canvas_chunks')
-              .select('pixels')
-              .eq('canvas_id', canvasId)
-              .eq('chunk_x', data.chunkX)
-              .eq('chunk_y', data.chunkY)
-              .single()
+          // Use atomic merge function to avoid race conditions
+          const { error } = await supabase.rpc('merge_chunk_pixels', {
+            p_canvas_id: canvasId,
+            p_chunk_x: data.chunkX,
+            p_chunk_y: data.chunkY,
+            p_new_pixels: pixelsJson,
+          })
 
-            if (existing?.pixels) {
-              existingData = existing.pixels as ChunkData
+          if (error) {
+            // Fallback to regular upsert if function doesn't exist
+            if (error.code === '42883') { // function does not exist
+              const { data: existing } = await supabase
+                .from('canvas_chunks')
+                .select('pixels')
+                .eq('canvas_id', canvasId)
+                .eq('chunk_x', data.chunkX)
+                .eq('chunk_y', data.chunkY)
+                .single()
+
+              const existingData = existing?.pixels as ChunkData | null
+              const merged = mergeChunkPixels(existingData, data.pixels)
+
+              await supabase
+                .from('canvas_chunks')
+                .upsert({
+                  canvas_id: canvasId,
+                  chunk_x: data.chunkX,
+                  chunk_y: data.chunkY,
+                  pixels: merged,
+                  updated_at: new Date().toISOString(),
+                }, {
+                  onConflict: 'canvas_id,chunk_x,chunk_y',
+                })
+            } else {
+              throw error
             }
           }
 
-          // Merge pixels
-          const merged = mergeChunkPixels(existingData, data.pixels)
-          chunkCache.set(key, merged)
-
-          // Upsert chunk
-          await supabase
-            .from('canvas_chunks')
-            .upsert({
-              canvas_id: canvasId,
-              chunk_x: data.chunkX,
-              chunk_y: data.chunkY,
-              pixels: merged,
-              updated_at: new Date().toISOString(),
-            }, {
-              onConflict: 'canvas_id,chunk_x,chunk_y',
-            })
+          // Update local cache
+          const cachedData = chunkCache.get(key) || {}
+          Object.assign(cachedData, pixelsJson)
+          chunkCache.set(key, cachedData)
         } catch (err) {
           console.error('Chunk sync error:', err)
           // Re-add to pending on failure
