@@ -1,7 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, createContext, useContext } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
+
+// Context for opening share modal from anywhere
+const ShareContext = createContext<{ open: () => void }>({ open: () => {} })
+export const useShareModal = () => useContext(ShareContext)
 
 interface ShareModalProps {
   canvasId: string
@@ -9,6 +13,7 @@ interface ShareModalProps {
 
 export function ShareModal({ canvasId }: ShareModalProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const openModal = () => setIsOpen(true)
   const [copied, setCopied] = useState(false)
 
   const shareUrl = typeof window !== 'undefined'
@@ -43,10 +48,10 @@ export function ShareModal({ canvasId }: ShareModalProps) {
 
   return (
     <>
-      {/* Share button */}
+      {/* Share button - positioned differently on mobile vs desktop */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed top-4 right-4 z-30 w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center text-neutral-600 hover:bg-neutral-100 transition-colors"
+        className="fixed top-4 right-4 z-30 w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center text-neutral-600 hover:bg-neutral-100 transition-colors hidden md:flex"
         title="Partager"
       >
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

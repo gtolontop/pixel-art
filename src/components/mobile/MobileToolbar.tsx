@@ -185,18 +185,18 @@ export function MobileToolbar() {
       )}
 
       {/* Controls - top right */}
-      <div className="fixed top-4 right-4 z-40 flex flex-col gap-2 md:hidden">
-        {/* Undo/Redo */}
+      <div className="fixed top-14 right-4 z-40 flex flex-col gap-2 md:hidden">
+        {/* Undo/Redo + Zoom in row */}
         <div className="flex gap-1">
           <button
             onClick={undo}
             disabled={!canUndo()}
             className={clsx(
-              'w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center transition-colors',
+              'w-9 h-9 bg-white rounded-lg shadow-lg flex items-center justify-center transition-colors',
               canUndo() ? 'active:bg-neutral-100' : 'opacity-40'
             )}
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
           </button>
@@ -204,34 +204,34 @@ export function MobileToolbar() {
             onClick={redo}
             disabled={!canRedo()}
             className={clsx(
-              'w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center transition-colors',
+              'w-9 h-9 bg-white rounded-lg shadow-lg flex items-center justify-center transition-colors',
               canRedo() ? 'active:bg-neutral-100' : 'opacity-40'
             )}
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
             </svg>
           </button>
+          <div className="w-px bg-neutral-200 mx-0.5" />
+          <button
+            onClick={() => handleZoom('out')}
+            className="w-9 h-9 bg-white rounded-lg shadow-lg flex items-center justify-center active:bg-neutral-100 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            </svg>
+          </button>
+          <button
+            onClick={() => handleZoom('in')}
+            className="w-9 h-9 bg-white rounded-lg shadow-lg flex items-center justify-center active:bg-neutral-100 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
         </div>
-
-        {/* Zoom */}
-        <button
-          onClick={() => handleZoom('in')}
-          className="w-12 h-12 bg-white rounded-xl shadow-lg flex items-center justify-center active:bg-neutral-100 transition-colors"
-        >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
-        <button
-          onClick={() => handleZoom('out')}
-          className="w-12 h-12 bg-white rounded-xl shadow-lg flex items-center justify-center active:bg-neutral-100 transition-colors"
-        >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-          </svg>
-        </button>
-        <div className="bg-white/90 rounded-xl px-2 py-1 text-center text-sm font-medium shadow">
+        {/* Zoom level */}
+        <div className="bg-white/90 rounded-lg px-2 py-1 text-center text-xs font-medium shadow self-end">
           {Math.round(viewport.zoom * 10) / 10}x
         </div>
       </div>
