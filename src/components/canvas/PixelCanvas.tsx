@@ -29,6 +29,9 @@ export function PixelCanvas() {
   const setColor = useCanvasStore((state) => state.setColor)
   const addRecentColor = useCanvasStore((state) => state.addRecentColor)
   const addPendingPixel = useCanvasStore((state) => state.addPendingPixel)
+  const setCursorPosition = useCanvasStore((state) => state.setCursorPosition)
+  const startStroke = useCanvasStore((state) => state.startStroke)
+  const endStroke = useCanvasStore((state) => state.endStroke)
 
   // Convert screen coordinates to world coordinates
   const screenToWorld = useCallback(
@@ -238,17 +241,28 @@ export function PixelCanvas() {
         if (currentTool === 'eyedropper') {
           pickColor(world.x, world.y)
         } else {
+          startStroke()
           setIsDrawing(true)
           lastPixelRef.current = world
           drawPixel(world.x, world.y)
         }
       }
     },
-    [screenToWorld, currentTool, pickColor, drawPixel]
+    [screenToWorld, currentTool, pickColor, drawPixel, startStroke]
   )
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (!rect) return
+
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      const world = screenToWorld(x, y)
+
+      // Update cursor position
+      setCursorPosition(world)
+
       if (isDragging) {
         const dx = e.clientX - lastPosRef.current.x
         const dy = e.clientY - lastPosRef.current.y
@@ -259,13 +273,6 @@ export function PixelCanvas() {
           y: viewport.y - dy / viewport.zoom,
         })
       } else if (isDrawing) {
-        const rect = canvasRef.current?.getBoundingClientRect()
-        if (!rect) return
-
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
-        const world = screenToWorld(x, y)
-
         // Only draw if position changed
         if (!lastPixelRef.current || world.x !== lastPixelRef.current.x || world.y !== lastPixelRef.current.y) {
           lastPixelRef.current = world
@@ -273,14 +280,27 @@ export function PixelCanvas() {
         }
       }
     },
-    [isDragging, isDrawing, viewport, setViewport, screenToWorld, drawPixel]
+    [isDragging, isDrawing, viewport, setViewport, screenToWorld, drawPixel, setCursorPosition]
   )
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false)
+    if (isDrawing) {
+      endStroke()
+    }
     setIsDrawing(false)
     lastPixelRef.current = null
-  }, [])
+  }, [isDrawing, endStroke])
+
+  const handleMouseLeave = useCallback(() => {
+    setCursorPosition(null)
+    if (isDrawing) {
+      endStroke()
+    }
+    setIsDragging(false)
+    setIsDrawing(false)
+    lastPixelRef.current = null
+  }, [isDrawing, endStroke, setCursorPosition])
 
   const handleWheel = useCallback(
     (e: WheelEvent) => {
@@ -340,9 +360,12 @@ export function PixelCanvas() {
         const y = touch.clientY - rect.top
         const world = screenToWorld(x, y)
 
+        setCursorPosition(world)
+
         if (currentTool === 'eyedropper') {
           pickColor(world.x, world.y)
         } else {
+          startStroke()
           setIsDrawing(true)
           isDrawingRef.current = true
           lastPixelRef.current = world
@@ -352,6 +375,9 @@ export function PixelCanvas() {
         lastPosRef.current = { x: touch.clientX, y: touch.clientY }
       } else if (e.touches.length === 2) {
         // Two fingers = pan/zoom
+        if (isDrawingRef.current) {
+          endStroke()
+        }
         setIsDrawing(false)
         isDrawingRef.current = false
         const [t1, t2] = [e.touches[0], e.touches[1]]
@@ -363,14 +389,14 @@ export function PixelCanvas() {
         lastPosRef.current = { x: centerX, y: centerY }
       }
     },
-    [screenToWorld, currentTool, pickColor, drawPixel]
+    [screenToWorld, currentTool, pickColor, drawPixel, startStroke, endStroke, setCursorPosition]
   )
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
       e.preventDefault()
 
-      if (e.touches.length === 1 && isDrawingRef.current) {
+      if (e.touches.length === 1) {
         const touch = e.touches[0]
         const rect = canvasRef.current?.getBoundingClientRect()
         if (!rect) return
@@ -379,9 +405,13 @@ export function PixelCanvas() {
         const y = touch.clientY - rect.top
         const world = screenToWorld(x, y)
 
-        if (!lastPixelRef.current || world.x !== lastPixelRef.current.x || world.y !== lastPixelRef.current.y) {
-          lastPixelRef.current = world
-          drawPixel(world.x, world.y)
+        setCursorPosition(world)
+
+        if (isDrawingRef.current) {
+          if (!lastPixelRef.current || world.x !== lastPixelRef.current.x || world.y !== lastPixelRef.current.y) {
+            lastPixelRef.current = world
+            drawPixel(world.x, world.y)
+          }
         }
       } else if (e.touches.length === 2 && touchStartRef.current) {
         const [t1, t2] = [e.touches[0], e.touches[1]]
@@ -407,15 +437,19 @@ export function PixelCanvas() {
         })
       }
     },
-    [viewport, setViewport, screenToWorld, drawPixel]
+    [viewport, setViewport, screenToWorld, drawPixel, setCursorPosition]
   )
 
   const handleTouchEnd = useCallback(() => {
+    if (isDrawingRef.current) {
+      endStroke()
+    }
     setIsDrawing(false)
     isDrawingRef.current = false
     lastPixelRef.current = null
     touchStartRef.current = null
-  }, [])
+    setCursorPosition(null)
+  }, [endStroke, setCursorPosition])
 
   // Add touch listeners with passive: false
   useEffect(() => {
@@ -433,6 +467,8 @@ export function PixelCanvas() {
     }
   }, [handleTouchStart, handleTouchMove, handleTouchEnd])
 
+  const cursorPosition = useCanvasStore((state) => state.cursorPosition)
+
   return (
     <div ref={containerRef} className="absolute inset-0">
       <canvas
@@ -441,9 +477,16 @@ export function PixelCanvas() {
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onContextMenu={(e) => e.preventDefault()}
       />
+
+      {/* Coordinates indicator */}
+      {cursorPosition && (
+        <div className="absolute top-4 right-4 md:top-auto md:bottom-4 md:right-20 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-mono text-neutral-600 shadow-sm">
+          {cursorPosition.x}, {cursorPosition.y}
+        </div>
+      )}
 
       {/* Zoom indicator - Desktop only */}
       <div className="hidden md:block absolute bottom-4 right-4 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium text-neutral-600 shadow-sm">
