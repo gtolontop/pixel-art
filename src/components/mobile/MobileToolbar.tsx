@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useCanvasStore } from '@/lib/store'
-import { PRESET_COLORS, MIN_ZOOM, MAX_ZOOM } from '@/types'
+import { useCanvasStore, COLOR_PALETTES, type PaletteName } from '@/lib/store'
+import { MIN_ZOOM, MAX_ZOOM } from '@/types'
 import type { Tool } from '@/types'
 import clsx from 'clsx'
 
@@ -47,6 +47,13 @@ export function MobileToolbar() {
   const setBrushSize = useCanvasStore((state) => state.setBrushSize)
   const viewport = useCanvasStore((state) => state.viewport)
   const setViewport = useCanvasStore((state) => state.setViewport)
+  const currentPalette = useCanvasStore((state) => state.currentPalette)
+  const setPalette = useCanvasStore((state) => state.setPalette)
+  const undo = useCanvasStore((state) => state.undo)
+  const redo = useCanvasStore((state) => state.redo)
+  const canUndo = useCanvasStore((state) => state.canUndo)
+  const canRedo = useCanvasStore((state) => state.canRedo)
+  const cursorPosition = useCanvasStore((state) => state.cursorPosition)
 
   const handleColorSelect = (color: string) => {
     setColor(color)
@@ -60,6 +67,8 @@ export function MobileToolbar() {
     setViewport({ zoom: newZoom })
   }
 
+  const paletteNames = Object.keys(COLOR_PALETTES) as PaletteName[]
+
   return (
     <>
       {/* Color picker modal */}
@@ -69,7 +78,7 @@ export function MobileToolbar() {
             className="absolute inset-0 bg-black/30"
             onClick={() => setShowColorPicker(false)}
           />
-          <div className="relative bg-white rounded-t-2xl p-4 w-full max-w-md pb-8 animate-slide-up">
+          <div className="relative bg-white rounded-t-2xl p-4 w-full max-w-md pb-8 animate-slide-up max-h-[80vh] overflow-y-auto">
             <div className="w-12 h-1 bg-neutral-300 rounded-full mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-3">Couleurs</h3>
 
@@ -87,11 +96,32 @@ export function MobileToolbar() {
               />
             </div>
 
-            {/* Preset colors */}
+            {/* Palette selector */}
+            <div className="mb-4">
+              <div className="text-sm text-neutral-500 mb-2">Palette</div>
+              <div className="flex gap-2 flex-wrap">
+                {paletteNames.map((name) => (
+                  <button
+                    key={name}
+                    onClick={() => setPalette(name)}
+                    className={clsx(
+                      'px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
+                      currentPalette === name
+                        ? 'bg-neutral-900 text-white'
+                        : 'bg-neutral-100 text-neutral-600'
+                    )}
+                  >
+                    {COLOR_PALETTES[name].name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Palette colors */}
             <div className="grid grid-cols-8 gap-2 mb-4">
-              {PRESET_COLORS.map((color) => (
+              {COLOR_PALETTES[currentPalette].colors.map((color, i) => (
                 <button
-                  key={color}
+                  key={`${color}-${i}`}
                   onClick={() => handleColorSelect(color)}
                   className={clsx(
                     'aspect-square rounded-lg border-2 transition-transform active:scale-95',
@@ -154,8 +184,37 @@ export function MobileToolbar() {
         </div>
       )}
 
-      {/* Zoom controls - top right */}
+      {/* Controls - top right */}
       <div className="fixed top-4 right-4 z-40 flex flex-col gap-2 md:hidden">
+        {/* Undo/Redo */}
+        <div className="flex gap-1">
+          <button
+            onClick={undo}
+            disabled={!canUndo()}
+            className={clsx(
+              'w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center transition-colors',
+              canUndo() ? 'active:bg-neutral-100' : 'opacity-40'
+            )}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo()}
+            className={clsx(
+              'w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center transition-colors',
+              canRedo() ? 'active:bg-neutral-100' : 'opacity-40'
+            )}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Zoom */}
         <button
           onClick={() => handleZoom('in')}
           className="w-12 h-12 bg-white rounded-xl shadow-lg flex items-center justify-center active:bg-neutral-100 transition-colors"
@@ -176,6 +235,13 @@ export function MobileToolbar() {
           {Math.round(viewport.zoom * 10) / 10}x
         </div>
       </div>
+
+      {/* Coordinates - top left on mobile when touching */}
+      {cursorPosition && (
+        <div className="fixed top-16 left-4 z-40 md:hidden bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-mono text-neutral-600 shadow">
+          {cursorPosition.x}, {cursorPosition.y}
+        </div>
+      )}
 
       {/* Main toolbar - bottom */}
       <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
