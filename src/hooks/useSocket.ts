@@ -59,10 +59,20 @@ export function useSocket(canvasId: string) {
 
     const handlePixel = (pixel: Pixel) => {
       setPixels([pixel])
+      // Invalidate chunk cache when receiving remote pixels
+      const { chunkX, chunkY } = groupPixelsByChunk([pixel]).values().next().value || {}
+      if (chunkX !== undefined) {
+        chunkCache.delete(`${chunkX},${chunkY}`)
+      }
     }
 
     const handlePixels = (pixels: Pixel[]) => {
       setPixels(pixels)
+      // Invalidate chunk cache for all affected chunks
+      const groups = groupPixelsByChunk(pixels)
+      for (const key of groups.keys()) {
+        chunkCache.delete(key)
+      }
     }
 
     socket.on('pixel', handlePixel)
