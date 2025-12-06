@@ -423,8 +423,8 @@ export function PixelCanvas() {
         onContextMenu={(e) => e.preventDefault()}
       />
 
-      {/* Zoom indicator */}
-      <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium text-neutral-600 shadow-sm">
+      {/* Zoom indicator - Desktop only */}
+      <div className="hidden md:block absolute bottom-4 right-4 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium text-neutral-600 shadow-sm">
         {Math.round(viewport.zoom * 10) / 10}x
       </div>
     </div>
