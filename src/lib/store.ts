@@ -64,6 +64,25 @@ interface HistoryEntry {
   previousColors: Map<string, string | undefined> // previous colors before change
 }
 
+// Remote user cursor
+export interface RemoteCursor {
+visibleId: string
+  username: string
+  color: string
+  x: number
+  y: number
+  lastUpdate: number
+}
+
+// Chat message
+export interface ChatMessage {
+visibleId: string
+  username: string
+  color: string
+  text: string
+  timestamp: number
+}
+
 interface CanvasState {
   // User
   user: User | null
@@ -119,6 +138,20 @@ interface CanvasState {
 
   // Current stroke tracking
   currentStroke: { pixels: Pixel[]; previousColors: Map<string, string | undefined> } | null
+
+  // Remote cursors
+  remoteCursors: Map<string, RemoteCursor>
+  setRemoteCursor: (odId: string, cursor: Omit<RemoteCursor, 'lastUpdate'>) => void
+  removeRemoteCursor: (odId: string) => void
+  clearOldCursors: () => void
+
+  // Chat
+  chatMessages: ChatMessage[]
+  addChatMessage: (message: ChatMessage) => void
+  isChatOpen: boolean
+  setChatOpen: (open: boolean) => void
+  unreadMessages: number
+  clearUnread: () => void
 }
 
 const MAX_HISTORY = 50
@@ -291,6 +324,44 @@ export const useCanvasStore = create<CanvasState>()(
 
       canUndo: () => get().historyIndex >= 0,
       canRedo: () => get().historyIndex < get().history.length - 1,
+
+      // Remote cursors
+      remoteCursors: new Map(),
+      setRemoteCursor: (odId, cursor) =>
+        set((state) => {
+          const newCursors = new Map(state.remoteCursors)
+          newCursors.set(odId, { ...cursor, lastUpdate: Date.now() })
+          return { remoteCursors: newCursors }
+        }),
+      removeRemoteCursor: (odId) =>
+        set((state) => {
+          const newCursors = new Map(state.remoteCursors)
+          newCursors.delete(odId)
+          return { remoteCursors: newCursors }
+        }),
+      clearOldCursors: () =>
+        set((state) => {
+          const now = Date.now()
+          const newCursors = new Map(state.remoteCursors)
+          for (const [odId, cursor] of newCursors) {
+            if (now - cursor.lastUpdate > 5000) {
+              newCursors.delete(odId)
+            }
+          }
+          return { remoteCursors: newCursors }
+        }),
+
+      // Chat
+      chatMessages: [],
+      addChatMessage: (message) =>
+        set((state) => ({
+          chatMessages: [...state.chatMessages.slice(-99), message],
+          unreadMessages: state.isChatOpen ? 0 : state.unreadMessages + 1,
+        })),
+      isChatOpen: false,
+      setChatOpen: (open) => set({ isChatOpen: open, unreadMessages: open ? 0 : get().unreadMessages }),
+      unreadMessages: 0,
+      clearUnread: () => set({ unreadMessages: 0 }),
     }),
     {
       name: 'pixel-art-storage',
