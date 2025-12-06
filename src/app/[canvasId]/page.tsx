@@ -12,6 +12,7 @@ import { UserPanel } from '@/components/panels/UserPanel'
 import { MobileToolbar } from '@/components/mobile/MobileToolbar'
 import { Chat } from '@/components/chat/Chat'
 import { UsernameModal } from '@/components/ui/UsernameModal'
+import { ShareModal } from '@/components/ui/ShareModal'
 import { useCanvasStore } from '@/lib/store'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { usePixelSync } from '@/hooks/usePixelSync'
@@ -70,6 +71,9 @@ export default function CanvasPage() {
 
       {/* Chat */}
       <Chat sendMessage={sendChatMessage} />
+
+      {/* Share Modal */}
+      <ShareModal canvasId={canvasId} />
 
       {/* Username Modal */}
       {!user && <UsernameModal />}
