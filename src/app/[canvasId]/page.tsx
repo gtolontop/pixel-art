@@ -3,10 +3,12 @@
 import { Suspense } from 'react'
 import { useParams } from 'next/navigation'
 import { PixelCanvas } from '@/components/canvas/PixelCanvas'
+import { RemoteCursors } from '@/components/canvas/RemoteCursors'
 import { ColorPicker } from '@/components/panels/ColorPicker'
 import { ToolPanel } from '@/components/panels/ToolPanel'
 import { UserPanel } from '@/components/panels/UserPanel'
 import { MobileToolbar } from '@/components/mobile/MobileToolbar'
+import { Chat } from '@/components/chat/Chat'
 import { UsernameModal } from '@/components/ui/UsernameModal'
 import { useCanvasStore } from '@/lib/store'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
@@ -20,13 +22,16 @@ export default function CanvasPage() {
   const user = useCanvasStore((state) => state.user)
   useKeyboardShortcuts()
   usePixelSync(canvasId)
-  useSocket(canvasId)
+  const { sendChatMessage } = useSocket(canvasId)
 
   return (
     <main className="relative w-full h-screen overflow-hidden bg-neutral-100">
       <Suspense fallback={<div className="absolute inset-0 bg-neutral-100" />}>
         <PixelCanvas />
       </Suspense>
+
+      {/* Remote cursors overlay */}
+      <RemoteCursors />
 
       {/* Floating Panels - Desktop only */}
       <div className="hidden md:block">
@@ -54,6 +59,9 @@ export default function CanvasPage() {
           </svg>
         </button>
       </div>
+
+      {/* Chat */}
+      <Chat sendMessage={sendChatMessage} />
 
       {/* Username Modal */}
       {!user && <UsernameModal />}
