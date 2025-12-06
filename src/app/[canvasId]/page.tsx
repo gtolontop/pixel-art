@@ -6,6 +6,7 @@ import { PixelCanvas } from '@/components/canvas/PixelCanvas'
 import { ColorPicker } from '@/components/panels/ColorPicker'
 import { ToolPanel } from '@/components/panels/ToolPanel'
 import { UserPanel } from '@/components/panels/UserPanel'
+import { MobileToolbar } from '@/components/mobile/MobileToolbar'
 import { UsernameModal } from '@/components/ui/UsernameModal'
 import { useCanvasStore } from '@/lib/store'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
@@ -27,20 +28,25 @@ export default function CanvasPage() {
         <PixelCanvas />
       </Suspense>
 
-      {/* Floating Panels */}
-      <ColorPicker />
-      <ToolPanel />
-      <UserPanel canvasId={canvasId} />
+      {/* Floating Panels - Desktop only */}
+      <div className="hidden md:block">
+        <ColorPicker />
+        <ToolPanel />
+        <UserPanel canvasId={canvasId} />
+      </div>
+
+      {/* Mobile Toolbar */}
+      <MobileToolbar />
 
       {/* Canvas ID indicator */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm flex items-center gap-2">
-        <span className="text-xs text-neutral-500">Canvas:</span>
-        <code className="text-sm font-mono text-neutral-700">{canvasId}</code>
+      <div className="absolute top-4 left-4 md:left-1/2 md:-translate-x-1/2 bg-white/80 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-full shadow-sm flex items-center gap-2 max-w-[200px] md:max-w-none">
+        <span className="text-xs text-neutral-500 hidden md:inline">Canvas:</span>
+        <code className="text-xs md:text-sm font-mono text-neutral-700 truncate">{canvasId}</code>
         <button
           onClick={() => {
             navigator.clipboard.writeText(window.location.href)
           }}
-          className="ml-2 p-1 hover:bg-neutral-200 rounded transition-colors"
+          className="p-1 hover:bg-neutral-200 active:bg-neutral-300 rounded transition-colors flex-shrink-0"
           title="Copy link"
         >
           <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
