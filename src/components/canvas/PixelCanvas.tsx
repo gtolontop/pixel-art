@@ -51,8 +51,8 @@ export function PixelCanvas() {
     [viewport]
   )
 
-  // Draw a single pixel or brush stroke
-  const drawPixel = useCallback(
+  // Draw a single pixel or brush stroke at one point
+  const drawPixelAt = useCallback(
     (worldX: number, worldY: number) => {
       const halfSize = Math.floor(brushSize / 2)
 
@@ -72,6 +72,52 @@ export function PixelCanvas() {
       }
     },
     [brushSize, currentColor, currentTool, setPixel, addPendingPixel]
+  )
+
+  // Draw a line between two points (Bresenham's algorithm) to fill gaps
+  const drawLine = useCallback(
+    (x0: number, y0: number, x1: number, y1: number) => {
+      const dx = Math.abs(x1 - x0)
+      const dy = Math.abs(y1 - y0)
+      const sx = x0 < x1 ? 1 : -1
+      const sy = y0 < y1 ? 1 : -1
+      let err = dx - dy
+
+      let x = x0
+      let y = y1
+
+      // Always draw from start point
+      while (true) {
+        drawPixelAt(x0, y0)
+
+        if (x0 === x1 && y0 === y1) break
+
+        const e2 = 2 * err
+        if (e2 > -dy) {
+          err -= dy
+          x0 += sx
+        }
+        if (e2 < dx) {
+          err += dx
+          y0 += sy
+        }
+      }
+    },
+    [drawPixelAt]
+  )
+
+  // Draw pixel with line interpolation from last position
+  const drawPixel = useCallback(
+    (worldX: number, worldY: number, lastX?: number, lastY?: number) => {
+      if (lastX !== undefined && lastY !== undefined && (lastX !== worldX || lastY !== worldY)) {
+        // Draw line from last position to current position
+        drawLine(lastX, lastY, worldX, worldY)
+      } else {
+        // Just draw single point
+        drawPixelAt(worldX, worldY)
+      }
+    },
+    [drawPixelAt, drawLine]
   )
 
   // Handle eyedropper
@@ -275,8 +321,10 @@ export function PixelCanvas() {
       } else if (isDrawing) {
         // Only draw if position changed
         if (!lastPixelRef.current || world.x !== lastPixelRef.current.x || world.y !== lastPixelRef.current.y) {
+          const lastX = lastPixelRef.current?.x
+          const lastY = lastPixelRef.current?.y
           lastPixelRef.current = world
-          drawPixel(world.x, world.y)
+          drawPixel(world.x, world.y, lastX, lastY)
         }
       }
     },
@@ -409,8 +457,10 @@ export function PixelCanvas() {
 
         if (isDrawingRef.current) {
           if (!lastPixelRef.current || world.x !== lastPixelRef.current.x || world.y !== lastPixelRef.current.y) {
+            const lastX = lastPixelRef.current?.x
+            const lastY = lastPixelRef.current?.y
             lastPixelRef.current = world
-            drawPixel(world.x, world.y)
+            drawPixel(world.x, world.y, lastX, lastY)
           }
         }
       } else if (e.touches.length === 2 && touchStartRef.current) {
