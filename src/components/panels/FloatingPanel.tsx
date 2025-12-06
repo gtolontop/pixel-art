@@ -7,6 +7,7 @@ interface FloatingPanelProps {
   title: string
   children: ReactNode
   defaultPosition?: { x: number; y: number }
+  anchorRight?: boolean // Anchor to right side of screen
   className?: string
 }
 
@@ -14,6 +15,7 @@ export function FloatingPanel({
   title,
   children,
   defaultPosition = { x: 20, y: 20 },
+  anchorRight = false,
   className,
 }: FloatingPanelProps) {
   const [position, setPosition] = useState(defaultPosition)
@@ -37,7 +39,8 @@ export function FloatingPanel({
         const dx = e.clientX - dragStartRef.current.x
         const dy = e.clientY - dragStartRef.current.y
         setPosition({
-          x: dragStartRef.current.posX + dx,
+          // For right-anchored panels, invert dx so dragging right moves panel right
+          x: dragStartRef.current.posX + (anchorRight ? -dx : dx),
           y: dragStartRef.current.posY + dy,
         })
       }
@@ -51,7 +54,7 @@ export function FloatingPanel({
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     },
-    [position]
+    [position, anchorRight]
   )
 
   return (
@@ -62,7 +65,7 @@ export function FloatingPanel({
         className
       )}
       style={{
-        left: position.x,
+        ...(anchorRight ? { right: position.x } : { left: position.x }),
         top: position.y,
         zIndex: isDragging ? 100 : 10,
       }}

@@ -51,27 +51,48 @@ export function PixelCanvas() {
     [viewport]
   )
 
-  // Draw a single pixel or brush stroke at one point
+  // Batch pixel buffer for performance
+  const pixelBatchRef = useRef<{ x: number; y: number; color: string }[]>([])
+  const batchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Flush batched pixels to state
+  const flushPixelBatch = useCallback(() => {
+    if (pixelBatchRef.current.length === 0) return
+
+    const pixels = [...pixelBatchRef.current]
+    pixelBatchRef.current = []
+
+    // Update state with all pixels at once
+    const store = useCanvasStore.getState()
+    store.setPixels(pixels)
+
+    // Add to pending pixels for sync
+    for (const pixel of pixels) {
+      store.addPendingPixel(pixel)
+    }
+  }, [])
+
+  // Draw a single pixel or brush stroke at one point (batched)
   const drawPixelAt = useCallback(
     (worldX: number, worldY: number) => {
       const halfSize = Math.floor(brushSize / 2)
+      const color = currentTool === 'brush' ? currentColor : ''
 
       for (let dx = -halfSize; dx < brushSize - halfSize; dx++) {
         for (let dy = -halfSize; dy < brushSize - halfSize; dy++) {
           const px = worldX + dx
           const py = worldY + dy
-
-          if (currentTool === 'brush') {
-            setPixel(px, py, currentColor)
-            addPendingPixel({ x: px, y: py, color: currentColor })
-          } else if (currentTool === 'eraser') {
-            setPixel(px, py, '')
-            addPendingPixel({ x: px, y: py, color: '' })
-          }
+          pixelBatchRef.current.push({ x: px, y: py, color })
         }
       }
+
+      // Debounce the flush to batch multiple draw calls
+      if (batchTimeoutRef.current) {
+        clearTimeout(batchTimeoutRef.current)
+      }
+      batchTimeoutRef.current = setTimeout(flushPixelBatch, 0)
     },
-    [brushSize, currentColor, currentTool, setPixel, addPendingPixel]
+    [brushSize, currentColor, currentTool, flushPixelBatch]
   )
 
   // Draw a line between two points (Bresenham's algorithm) to fill gaps
@@ -390,6 +411,8 @@ export function PixelCanvas() {
   // Touch handlers for mobile
   const touchStartRef = useRef<{ x: number; y: number; dist: number } | null>(null)
   const isDrawingRef = useRef(false)
+  const touchDelayRef = useRef<NodeJS.Timeout | null>(null)
+  const pendingTouchRef = useRef<{ x: number; y: number; world: { x: number; y: number } } | null>(null)
 
   // Sync isDrawing state to ref for use in native event handlers
   useEffect(() => {
@@ -398,8 +421,14 @@ export function PixelCanvas() {
 
   const handleTouchStart = useCallback(
     (e: TouchEvent) => {
+      // Clear any pending touch delay
+      if (touchDelayRef.current) {
+        clearTimeout(touchDelayRef.current)
+        touchDelayRef.current = null
+      }
+
       if (e.touches.length === 1) {
-        // Single touch = draw
+        // Single touch - delay drawing to detect multi-touch gestures
         const touch = e.touches[0]
         const rect = canvasRef.current?.getBoundingClientRect()
         if (!rect) return
@@ -409,25 +438,37 @@ export function PixelCanvas() {
         const world = screenToWorld(x, y)
 
         setCursorPosition(world)
+        lastPosRef.current = { x: touch.clientX, y: touch.clientY }
 
         if (currentTool === 'eyedropper') {
           pickColor(world.x, world.y)
         } else {
-          startStroke()
-          setIsDrawing(true)
-          isDrawingRef.current = true
-          lastPixelRef.current = world
-          drawPixel(world.x, world.y)
+          // Store pending touch and delay drawing start
+          pendingTouchRef.current = { x, y, world }
+          touchDelayRef.current = setTimeout(() => {
+            if (pendingTouchRef.current) {
+              startStroke()
+              setIsDrawing(true)
+              isDrawingRef.current = true
+              lastPixelRef.current = pendingTouchRef.current.world
+              drawPixel(pendingTouchRef.current.world.x, pendingTouchRef.current.world.y)
+              pendingTouchRef.current = null
+            }
+          }, 50) // 50ms delay to detect second finger
         }
-
-        lastPosRef.current = { x: touch.clientX, y: touch.clientY }
       } else if (e.touches.length === 2) {
-        // Two fingers = pan/zoom
+        // Two fingers = pan/zoom - cancel any pending draw
+        pendingTouchRef.current = null
+        if (touchDelayRef.current) {
+          clearTimeout(touchDelayRef.current)
+          touchDelayRef.current = null
+        }
         if (isDrawingRef.current) {
           endStroke()
         }
         setIsDrawing(false)
         isDrawingRef.current = false
+
         const [t1, t2] = [e.touches[0], e.touches[1]]
         const centerX = (t1.clientX + t2.clientX) / 2
         const centerY = (t1.clientY + t2.clientY) / 2
@@ -491,6 +532,13 @@ export function PixelCanvas() {
   )
 
   const handleTouchEnd = useCallback(() => {
+    // Clear pending touch delay
+    if (touchDelayRef.current) {
+      clearTimeout(touchDelayRef.current)
+      touchDelayRef.current = null
+    }
+    pendingTouchRef.current = null
+
     if (isDrawingRef.current) {
       endStroke()
     }

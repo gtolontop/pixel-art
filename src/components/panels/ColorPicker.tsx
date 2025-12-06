@@ -29,7 +29,7 @@ export function ColorPicker() {
   }
 
   return (
-    <FloatingPanel title="Colors" defaultPosition={{ x: 20, y: 20 }}>
+    <FloatingPanel title="Colors" defaultPosition={{ x: 20, y: 80 }}>
       <div className="space-y-4">
         {/* Current color preview */}
         <div className="flex items-center gap-3">

@@ -55,9 +55,13 @@ export function ToolPanel() {
   const setTool = useCanvasStore((state) => state.setTool)
   const brushSize = useCanvasStore((state) => state.brushSize)
   const setBrushSize = useCanvasStore((state) => state.setBrushSize)
+  const undo = useCanvasStore((state) => state.undo)
+  const redo = useCanvasStore((state) => state.redo)
+  const canUndo = useCanvasStore((state) => state.canUndo)
+  const canRedo = useCanvasStore((state) => state.canRedo)
 
   return (
-    <FloatingPanel title="Tools" defaultPosition={{ x: 20, y: 280 }}>
+    <FloatingPanel title="Tools" defaultPosition={{ x: 20, y: 360 }}>
       <div className="space-y-4">
         {/* Tool buttons */}
         <div className="flex gap-2">
@@ -76,6 +80,32 @@ export function ToolPanel() {
               {tool.icon}
             </button>
           ))}
+        </div>
+
+        {/* Undo/Redo */}
+        <div className="flex gap-2">
+          <button
+            onClick={undo}
+            disabled={!canUndo()}
+            className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            title="Undo (Ctrl+Z)"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+            <span className="text-xs">Undo</span>
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo()}
+            className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            title="Redo (Ctrl+Y)"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+            </svg>
+            <span className="text-xs">Redo</span>
+          </button>
         </div>
 
         {/* Brush size */}
@@ -109,11 +139,13 @@ export function ToolPanel() {
         {/* Keyboard shortcuts hint */}
         <div className="pt-2 border-t border-neutral-100">
           <div className="text-xs text-neutral-400 space-y-1">
-            <div>
-              <kbd className="px-1.5 py-0.5 bg-neutral-100 rounded text-[10px] font-mono">B</kbd> Brush
+            <div className="flex justify-between">
+              <span><kbd className="px-1.5 py-0.5 bg-neutral-100 rounded text-[10px] font-mono">B</kbd> Brush</span>
+              <span><kbd className="px-1.5 py-0.5 bg-neutral-100 rounded text-[10px] font-mono">Ctrl+Z</kbd> Undo</span>
             </div>
-            <div>
-              <kbd className="px-1.5 py-0.5 bg-neutral-100 rounded text-[10px] font-mono">E</kbd> Eraser
+            <div className="flex justify-between">
+              <span><kbd className="px-1.5 py-0.5 bg-neutral-100 rounded text-[10px] font-mono">E</kbd> Eraser</span>
+              <span><kbd className="px-1.5 py-0.5 bg-neutral-100 rounded text-[10px] font-mono">Ctrl+Y</kbd> Redo</span>
             </div>
             <div>
               <kbd className="px-1.5 py-0.5 bg-neutral-100 rounded text-[10px] font-mono">I</kbd> Eyedropper

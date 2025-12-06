@@ -16,6 +16,7 @@ export function UserPanel({ canvasId }: UserPanelProps) {
   const viewport = useCanvasStore((state) => state.viewport)
   const setViewport = useCanvasStore((state) => state.setViewport)
   const pixels = useCanvasStore((state) => state.pixels)
+  const connectedUsers = useCanvasStore((state) => state.connectedUsers)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [isSharing, setIsSharing] = useState(false)
 
@@ -96,7 +97,7 @@ export function UserPanel({ canvasId }: UserPanelProps) {
   }
 
   return (
-    <FloatingPanel title="Menu" defaultPosition={{ x: 20, y: 480 }}>
+    <FloatingPanel title="Menu" defaultPosition={{ x: 20, y: 80 }} anchorRight>
       <div className="space-y-3 min-w-[160px]">
         {user && (
           <div className="flex items-center gap-2 pb-3 border-b border-neutral-100">
@@ -178,6 +179,37 @@ export function UserPanel({ canvasId }: UserPanelProps) {
             </button>
           )}
         </div>
+
+        {/* Connected users */}
+        {connectedUsers.length > 0 && (
+          <div className="pt-2 border-t border-neutral-100">
+            <div className="text-xs text-neutral-500 mb-2">
+              {connectedUsers.length} online
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {connectedUsers.slice(0, 8).map((u) => (
+                <div
+                  key={u.odId}
+                  className="flex items-center gap-1 px-2 py-1 bg-neutral-100 rounded-full"
+                  title={u.username}
+                >
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: u.color }}
+                  />
+                  <span className="text-xs text-neutral-600 truncate max-w-[60px]">
+                    {u.username}
+                  </span>
+                </div>
+              ))}
+              {connectedUsers.length > 8 && (
+                <div className="px-2 py-1 text-xs text-neutral-400">
+                  +{connectedUsers.length - 8}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="pt-2 border-t border-neutral-100 text-xs text-neutral-400">
           {pixels.size} pixels placed

@@ -18,6 +18,9 @@ export function useSocket(canvasId: string) {
   const removeRemoteCursor = useCanvasStore((state) => state.removeRemoteCursor)
   const clearOldCursors = useCanvasStore((state) => state.clearOldCursors)
   const addChatMessage = useCanvasStore((state) => state.addChatMessage)
+  const setConnectedUsers = useCanvasStore((state) => state.setConnectedUsers)
+  const addConnectedUser = useCanvasStore((state) => state.addConnectedUser)
+  const removeConnectedUser = useCanvasStore((state) => state.removeConnectedUser)
   const user = useCanvasStore((state) => state.user)
   const cursorPosition = useCanvasStore((state) => state.cursorPosition)
   const currentRoomRef = useRef<string | null>(null)
@@ -87,10 +90,21 @@ export function useSocket(canvasId: string) {
 
     const handleUserLeft = (odId: string) => {
       removeRemoteCursor(odId)
+      removeConnectedUser(odId)
+    }
+
+    const handleUsersList = (users: { odId: string; username: string; color: string }[]) => {
+      setConnectedUsers(users)
+    }
+
+    const handleUserJoined = (userData: { odId: string; username: string; color: string }) => {
+      addConnectedUser(userData)
     }
 
     socket.on('cursor', handleCursor)
     socket.on('user-left', handleUserLeft)
+    socket.on('users-list', handleUsersList)
+    socket.on('user-joined', handleUserJoined)
 
     // Clear old cursors periodically
     const cleanupInterval = setInterval(clearOldCursors, 2000)
@@ -98,16 +112,24 @@ export function useSocket(canvasId: string) {
     return () => {
       socket?.off('cursor', handleCursor)
       socket?.off('user-left', handleUserLeft)
+      socket?.off('users-list', handleUsersList)
+      socket?.off('user-joined', handleUserJoined)
       clearInterval(cleanupInterval)
     }
-  }, [setRemoteCursor, removeRemoteCursor, clearOldCursors])
+  }, [setRemoteCursor, removeRemoteCursor, clearOldCursors, setConnectedUsers, addConnectedUser, removeConnectedUser])
 
   // Listen for chat messages
   useEffect(() => {
     if (!socket) return
 
-    const handleChat = (message: ChatMessage) => {
-      addChatMessage(message)
+    const handleChat = (data: { odId: string; username: string; color: string; text: string; timestamp: number }) => {
+      addChatMessage({
+        visibleId: data.odId,
+        username: data.username,
+        color: data.color,
+        text: data.text,
+        timestamp: data.timestamp,
+      })
     }
 
     socket.on('chat', handleChat)

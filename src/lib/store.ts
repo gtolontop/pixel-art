@@ -83,6 +83,13 @@ visibleId: string
   timestamp: number
 }
 
+// Connected user
+export interface ConnectedUser {
+  odId: string
+  username: string
+  color: string
+}
+
 interface CanvasState {
   // User
   user: User | null
@@ -152,6 +159,12 @@ interface CanvasState {
   setChatOpen: (open: boolean) => void
   unreadMessages: number
   clearUnread: () => void
+
+  // Connected users
+  connectedUsers: ConnectedUser[]
+  setConnectedUsers: (users: ConnectedUser[]) => void
+  addConnectedUser: (user: ConnectedUser) => void
+  removeConnectedUser: (odId: string) => void
 }
 
 const MAX_HISTORY = 50
@@ -220,6 +233,19 @@ export const useCanvasStore = create<CanvasState>()(
       setPixels: (pixels) =>
         set((state) => {
           const newPixels = new Map(state.pixels)
+
+          // Track for current stroke (undo/redo)
+          if (state.currentStroke) {
+            for (const pixel of pixels) {
+              const key = `${pixel.x},${pixel.y}`
+              const prevColor = state.pixels.get(key)
+              if (!state.currentStroke.previousColors.has(key)) {
+                state.currentStroke.previousColors.set(key, prevColor)
+              }
+              state.currentStroke.pixels.push(pixel)
+            }
+          }
+
           for (const pixel of pixels) {
             const key = `${pixel.x},${pixel.y}`
             if (pixel.color === '') {
@@ -362,6 +388,22 @@ export const useCanvasStore = create<CanvasState>()(
       setChatOpen: (open) => set({ isChatOpen: open, unreadMessages: open ? 0 : get().unreadMessages }),
       unreadMessages: 0,
       clearUnread: () => set({ unreadMessages: 0 }),
+
+      // Connected users
+      connectedUsers: [],
+      setConnectedUsers: (users) => set({ connectedUsers: users }),
+      addConnectedUser: (user) =>
+        set((state) => {
+          // Don't add if already exists
+          if (state.connectedUsers.some((u) => u.odId === user.odId)) {
+            return state
+          }
+          return { connectedUsers: [...state.connectedUsers, user] }
+        }),
+      removeConnectedUser: (odId) =>
+        set((state) => ({
+          connectedUsers: state.connectedUsers.filter((u) => u.odId !== odId),
+        })),
     }),
     {
       name: 'pixel-art-storage',

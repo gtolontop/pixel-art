@@ -4,6 +4,8 @@ import { Suspense } from 'react'
 import { useParams } from 'next/navigation'
 import { PixelCanvas } from '@/components/canvas/PixelCanvas'
 import { RemoteCursors } from '@/components/canvas/RemoteCursors'
+import { Minimap } from '@/components/canvas/Minimap'
+import { Timelapse } from '@/components/canvas/Timelapse'
 import { ColorPicker } from '@/components/panels/ColorPicker'
 import { ToolPanel } from '@/components/panels/ToolPanel'
 import { UserPanel } from '@/components/panels/UserPanel'
@@ -59,6 +61,12 @@ export default function CanvasPage() {
           </svg>
         </button>
       </div>
+
+      {/* Minimap - Desktop only */}
+      <Minimap />
+
+      {/* Timelapse */}
+      <Timelapse />
 
       {/* Chat */}
       <Chat sendMessage={sendChatMessage} />
